@@ -169,14 +169,24 @@ function App() {
 
   const toggleStepCompletion = async (stepId, isCompleted) => {
     try {
-      const progressData = {
-        customer_id: selectedCustomer.id,
-        step_template_id: stepId,
-        completed: isCompleted,
-        completed_at: isCompleted ? new Date().toISOString() : null
-      };
-
-      await supabase.from('customer_progress').upsert(progressData).execute();
+      if (isCompleted) {
+        // Adding completion
+        const progressData = {
+          customer_id: selectedCustomer.id,
+          step_template_id: stepId,
+          completed: true,
+          completed_at: new Date().toISOString()
+        };
+        await supabase.from('customer_progress').upsert(progressData).execute();
+      } else {
+        // Removing completion - delete the record
+        await supabase.from('customer_progress')
+          .delete()
+          .eq('customer_id', selectedCustomer.id)
+          .eq('step_template_id', stepId)
+          .execute();
+      }
+      
       await loadCustomerProgress(selectedCustomer.id);
     } catch (error) {
       console.error('Failed to update step completion:', error);
@@ -456,13 +466,10 @@ function App() {
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-900 mb-2">🎯 New Features Added</h4>
-        <ul className="text-blue-800 text-sm space-y-1">
-          <li>• Click on any customer to view their detailed progress</li>
-          <li>• Check/uncheck steps to mark them as complete</li>
-          <li>• Visual progress bar shows completion percentage</li>
-          <li>• Step completion data is stored in Supabase</li>
-        </ul>
+        <h4 className="font-semibold text-blue-900 mb-2">✅ Fixed: Unchecking Steps</h4>
+        <p className="text-blue-800 text-sm">
+          You can now check and uncheck steps without errors. Unchecking properly removes the completion record from the database.
+        </p>
       </div>
     </div>
   );
