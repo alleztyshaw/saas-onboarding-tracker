@@ -106,7 +106,7 @@ function App() {
   const importSampleData = async () => {
     setImportingData(true);
     try {
-      console.log('Starting sample data import...');
+      console.log('=== STARTING SAMPLE DATA IMPORT ===');
       
       const sampleSteps = [
         { order: 1, title: "Account Setup & Email Verification", description: "Customer verifies email and completes basic account information", estimated_days: 1, owner: "customer" },
@@ -124,19 +124,30 @@ function App() {
         { name: "Digital Solutions Co.", email: "contact@digitalsolutions.com", signup_date: "2024-09-12" }
       ];
 
-      console.log('Inserting steps and customers...');
+      console.log('=== INSERTING STEPS AND CUSTOMERS ===');
       await supabase.from('step_templates').insert(sampleSteps).execute();
-      await supabase.from('customers').insert(sampleCustomers).execute();
+      console.log('✅ Steps inserted');
       
-      console.log('Getting fresh data for customer_steps creation...');
+      await supabase.from('customers').insert(sampleCustomers).execute();
+      console.log('✅ Customers inserted');
+      
+      console.log('=== FETCHING FRESH DATA ===');
       const allCustomers = await supabase.from('customers').select().execute();
       const allSteps = await supabase.from('step_templates').select().execute();
       
       console.log('Found customers:', allCustomers?.length);
       console.log('Found steps:', allSteps?.length);
+      console.log('Customer data:', allCustomers);
+      console.log('Steps data:', allSteps);
+      
+      console.log('=== CHECKING CONDITIONS ===');
+      console.log('allCustomers exists?', !!allCustomers);
+      console.log('allSteps exists?', !!allSteps);
+      console.log('allCustomers length > 0?', allCustomers?.length > 0);
+      console.log('allSteps length > 0?', allSteps?.length > 0);
       
       if (allCustomers && allSteps && allCustomers.length > 0 && allSteps.length > 0) {
-        console.log('Creating customer step instances...');
+        console.log('=== CONDITIONS MET - CREATING CUSTOMER STEPS ===');
         const customerStepInstances = [];
         
         allCustomers.forEach((customer, customerIndex) => {
@@ -187,7 +198,7 @@ function App() {
           });
         });
 
-        console.log(`Inserting ${customerStepInstances.length} customer step records...`);
+        console.log(`=== INSERTING ${customerStepInstances.length} CUSTOMER STEP RECORDS ===`);
         console.log('Sample records:', customerStepInstances.slice(0, 3));
         
         try {
@@ -221,8 +232,12 @@ function App() {
           console.error('Insert error message:', insertError.message);
           throw new Error(`Customer steps insert failed: ${insertError.message}`);
         }
+      } else {
+        console.log('=== CONDITIONS NOT MET - SKIPPING CUSTOMER STEPS ===');
+        console.log('This is why customer_steps are not being created');
       }
       
+      console.log('=== RELOADING DATA ===');
       await loadData();
       alert('✅ Sample data with progress tracking imported successfully!');
     } catch (error) {
