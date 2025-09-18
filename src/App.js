@@ -179,17 +179,17 @@ function App() {
         };
         await supabase.from('customer_progress').upsert(progressData).execute();
       } else {
-        // Removing completion - delete the record
-        await supabase.from('customer_progress')
-          .delete()
-          .eq('customer_id', selectedCustomer.id)
-          .eq('step_template_id', stepId)
-          .execute();
+        // Removing completion - delete the record with both conditions
+        const deleteUrl = `customer_progress?customer_id=eq.${selectedCustomer.id}&step_template_id=eq.${stepId}`;
+        await supabase.request(deleteUrl, {
+          method: 'DELETE'
+        });
       }
       
       await loadCustomerProgress(selectedCustomer.id);
     } catch (error) {
       console.error('Failed to update step completion:', error);
+      console.error('Error details:', error);
       alert('❌ Failed to update step completion');
     }
   };
