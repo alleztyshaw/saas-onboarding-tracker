@@ -106,6 +106,8 @@ function App() {
   const importSampleData = async () => {
     setImportingData(true);
     try {
+      console.log('Starting sample data import...');
+      
       const sampleSteps = [
         { order: 1, title: "Account Setup & Email Verification", description: "Customer verifies email and completes basic account information", estimated_days: 1, owner: "customer" },
         { order: 2, title: "Initial Configuration Call", description: "30-minute onboarding call with Customer Success team to understand requirements", estimated_days: 2, owner: "product_team" },
@@ -122,14 +124,82 @@ function App() {
         { name: "Digital Solutions Co.", email: "contact@digitalsolutions.com", signup_date: "2024-09-12" }
       ];
 
+      console.log('Inserting steps and customers...');
       await supabase.from('step_templates').insert(sampleSteps).execute();
       await supabase.from('customers').insert(sampleCustomers).execute();
       
+      console.log('Getting fresh data for customer_steps creation...');
+      const allCustomers = await supabase.from('customers').select().execute();
+      const allSteps = await supabase.from('step_templates').select().execute();
+      
+      console.log('Found customers:', allCustomers?.length);
+      console.log('Found steps:', allSteps?.length);
+      
+      if (allCustomers && allSteps && allCustomers.length > 0 && allSteps.length > 0) {
+        console.log('Creating customer step instances...');
+        const customerStepInstances = [];
+        
+        allCustomers.forEach((customer, customerIndex) => {
+          console.log(`Processing customer ${customerIndex + 1}: ${customer.name} (ID: ${customer.id})`);
+          
+          allSteps.forEach((step, stepIndex) => {
+            let status = 'pending';
+            let completedDate = null;
+            let startedDate = null;
+            
+            // Create realistic progress for demo
+            if (customerIndex === 0) { // First customer - further along
+              if (stepIndex <= 2) {
+                status = 'completed';
+                completedDate = '2024-09-12';
+                startedDate = '2024-09-11';
+              } else if (stepIndex === 3) {
+                status = 'in_progress';
+                startedDate = '2024-09-17';
+              }
+            } else if (customerIndex === 1) { // Second customer - middle progress
+              if (stepIndex <= 1) {
+                status = 'completed';
+                completedDate = '2024-09-16';
+                startedDate = '2024-09-15';
+              } else if (stepIndex === 2) {
+                status = 'in_progress';
+                startedDate = '2024-09-17';
+              }
+            } else { // Third customer - just started
+              if (stepIndex === 0) {
+                status = 'completed';
+                completedDate = '2024-09-13';
+                startedDate = '2024-09-12';
+              } else if (stepIndex === 1) {
+                status = 'in_progress';
+                startedDate = '2024-09-18';
+              }
+            }
+            
+            customerStepInstances.push({
+              customer_id: customer.id,
+              template_id: step.id,
+              status: status,
+              completed_date: completedDate,
+              started_date: startedDate
+            });
+          });
+        });
+
+        console.log(`Inserting ${customerStepInstances.length} customer step records...`);
+        console.log('Sample records:', customerStepInstances.slice(0, 3));
+        
+        const result = await supabase.from('customer_steps').insert(customerStepInstances).execute();
+        console.log('Customer steps insert result:', result);
+      }
+      
       await loadData();
-      alert('✅ Sample data imported successfully!');
+      alert('✅ Sample data with progress tracking imported successfully!');
     } catch (error) {
       console.error('Failed to import sample data:', error);
-      alert('❌ Failed to import sample data');
+      console.error('Error details:', error.message);
+      alert(`❌ Failed to import sample data: ${error.message}`);
     } finally {
       setImportingData(false);
     }
