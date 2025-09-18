@@ -86,8 +86,13 @@ function App() {
   const loadData = async () => {
     try {
       setLoading(true);
+      console.log('Loading data from Supabase...');
+      
       const customersData = await supabase.from('customers').select().execute();
       const templatesData = await supabase.from('step_templates').select().execute();
+      
+      console.log('Customers loaded:', customersData);
+      console.log('Templates loaded:', templatesData);
       
       setCustomers(customersData || []);
       const sortedTemplates = (templatesData || []).sort((a, b) => a.order - b.order);
@@ -246,7 +251,9 @@ function App() {
       <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
         <div className="flex justify-between items-start mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">SaaS Onboarding Tracker</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              SaaS Onboarding Tracker (Customers: {customers.length}, Steps: {stepTemplate.length})
+            </h1>
             <p className="text-gray-600">Monitor and manage customer onboarding journeys</p>
           </div>
           <div className="flex items-center gap-4">
@@ -254,6 +261,14 @@ function App() {
               <Wifi className="w-4 h-4" />
               Connected to Supabase
             </div>
+            <button 
+              onClick={importSampleData}
+              disabled={importingData}
+              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+            >
+              <Database className="w-4 h-4" />
+              {importingData ? 'Importing...' : 'Import Sample Data'}
+            </button>
           </div>
         </div>
 
