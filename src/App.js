@@ -466,9 +466,9 @@ function App() {
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-900 mb-2">✅ Fixed: Unchecking Steps</h4>
+        <h4 className="font-semibold text-blue-900 mb-2">✅ Redesigned: Step Progress Tracking</h4>
         <p className="text-blue-800 text-sm">
-          You can now check and uncheck steps without errors. Unchecking properly removes the completion record from the database.
+          Progress records are now created for all steps when you first view a customer. Checking/unchecking simply toggles the completion status - no more errors!
         </p>
       </div>
     </div>
