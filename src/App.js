@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, User, Users, Plus, Settings, Database, Wifi, AlertCircle, Calendar, BarChart3, UserCheck, ArrowLeft, Check, X } from 'lucide-react';
+import { CheckCircle, Clock, User, Users, Plus, Settings, Database, Wifi, AlertCircle, Calendar, BarChart3, UserCheck, ArrowLeft, Check, X, GripVertical, Trash2 } from 'lucide-react';
 
 // Supabase configuration
 const SUPABASE_URL = 'https://svcxdskpdrfflqkbvxmy.supabase.co';
@@ -86,10 +86,14 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
   const [stepTemplate, setStepTemplate] = useState([]);
-  const [importingData, setImportingData] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerProgress, setCustomerProgress] = useState([]);
   const [loadingProgress, setLoadingProgress] = useState(false);
+  const [currentView, setCurrentView] = useState('dashboard'); // dashboard, customer-detail, step-management
+  const [draggedStep, setDraggedStep] = useState(null);
+  const [hoveredStep, setHoveredStep] = useState(null);
+  const [newStep, setNewStep] = useState({ title: '', description: '', estimated_days: 1, owner: 'customer' });
+  const [isAddingStep, setIsAddingStep] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -135,48 +139,26 @@ function App() {
     }
   };
 
-  const importSampleData = async () => {
-    setImportingData(true);
-    try {
-      const sampleSteps = [
-        { order: 1, title: "Account Setup & Email Verification", description: "Customer verifies email and completes basic account information", estimated_days: 1, owner: "customer" },
-        { order: 2, title: "Initial Configuration Call", description: "30-minute onboarding call with Customer Success team to understand requirements", estimated_days: 2, owner: "product_team" },
-        { order: 3, title: "Data Integration Setup", description: "Connect customer's existing systems and import initial data", estimated_days: 3, owner: "product_team" },
-        { order: 4, title: "Team Training Session", description: "Comprehensive training for up to 10 team members on platform features", estimated_days: 1, owner: "product_team" },
-        { order: 5, title: "Custom Workflow Configuration", description: "Customer configures workflows specific to their business processes", estimated_days: 2, owner: "customer" },
-        { order: 6, title: "UAT & Feedback", description: "Customer tests all features and provides feedback for final adjustments", estimated_days: 3, owner: "customer" },
-        { order: 7, title: "Go-Live Support", description: "Final system checks and go-live support during first week of production use", estimated_days: 2, owner: "product_team" }
-      ];
-
-      const sampleCustomers = [
-        { name: "TechStart Inc.", email: "admin@techstart.com", signup_date: "2024-09-10" },
-        { name: "Innovation Labs", email: "team@innovationlabs.io", signup_date: "2024-09-15" },
-        { name: "Digital Solutions Co.", email: "contact@digitalsolutions.com", signup_date: "2024-09-12" }
-      ];
-
-      await supabase.from('step_templates').insert(sampleSteps).execute();
-      await supabase.from('customers').insert(sampleCustomers).execute();
-      
-      await loadData();
-      alert('✅ Sample data imported successfully!');
-    } catch (error) {
-      console.error('Failed to import sample data:', error);
-      alert('❌ Failed to import sample data');
-    } finally {
-      setImportingData(false);
-    }
-  };
-
   const toggleStepCompletion = async (stepId, isCompleted) => {
     try {
-      const progressData = {
-        customer_id: selectedCustomer.id,
-        step_template_id: stepId,
-        completed: isCompleted,
-        completed_at: isCompleted ? new Date().toISOString() : null
-      };
-
-      await supabase.from('customer_progress').upsert(progressData).execute();
+      if (isCompleted) {
+        // Adding completion
+        const progressData = {
+          customer_id: selectedCustomer.id,
+          step_template_id: stepId,
+          completed: true,
+          completed_at: new Date().toISOString()
+        };
+        await supabase.from('customer_progress').upsert(progressData).execute();
+      } else {
+        // Removing completion - delete the record
+        await supabase.from('customer_progress')
+          .delete()
+          .eq('customer_id', selectedCustomer.id)
+          .eq('step_template_id', stepId)
+          .execute();
+      }
+      
       await loadCustomerProgress(selectedCustomer.id);
     } catch (error) {
       console.error('Failed to update step completion:', error);
@@ -203,12 +185,115 @@ function App() {
 
   const viewCustomerDetail = (customer) => {
     setSelectedCustomer(customer);
+    setCurrentView('customer-detail');
     loadCustomerProgress(customer.id);
   };
 
-  const backToCustomerList = () => {
+  const viewStepManagement = () => {
+    setCurrentView('step-management');
+  };
+
+  const backToDashboard = () => {
+    setCurrentView('dashboard');
     setSelectedCustomer(null);
     setCustomerProgress([]);
+  };
+
+  // Step Management Functions
+  const handleDragStart = (e, step) => {
+    setDraggedStep(step);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, targetStep) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setHoveredStep(targetStep.id);
+  };
+
+  const handleDragLeave = () => {
+    setHoveredStep(null);
+  };
+
+  const handleDrop = async (e, targetStep) => {
+    e.preventDefault();
+    setHoveredStep(null);
+    
+    if (!draggedStep || draggedStep.id === targetStep.id) {
+      setDraggedStep(null);
+      return;
+    }
+
+    try {
+      // Reorder the steps
+      const newSteps = [...stepTemplate];
+      const draggedIndex = newSteps.findIndex(s => s.id === draggedStep.id);
+      const targetIndex = newSteps.findIndex(s => s.id === targetStep.id);
+      
+      // Remove dragged step and insert at target position
+      newSteps.splice(draggedIndex, 1);
+      newSteps.splice(targetIndex, 0, draggedStep);
+      
+      // Update order values
+      const updatedSteps = newSteps.map((step, index) => ({
+        ...step,
+        order: index + 1
+      }));
+      
+      setStepTemplate(updatedSteps);
+      
+      // Update in database
+      for (const step of updatedSteps) {
+        await supabase.from('step_templates')
+          .update({ order: step.order })
+          .eq('id', step.id)
+          .execute();
+      }
+      
+    } catch (error) {
+      console.error('Failed to reorder steps:', error);
+      alert('❌ Failed to reorder steps');
+      await loadData(); // Reload to get correct order
+    }
+    
+    setDraggedStep(null);
+  };
+
+  const addNewStep = async () => {
+    if (!newStep.title.trim() || !newStep.description.trim()) {
+      alert('Please fill in both title and description');
+      return;
+    }
+
+    try {
+      const stepData = {
+        ...newStep,
+        order: stepTemplate.length + 1
+      };
+
+      await supabase.from('step_templates').insert(stepData).execute();
+      await loadData();
+      
+      setNewStep({ title: '', description: '', estimated_days: 1, owner: 'customer' });
+      setIsAddingStep(false);
+    } catch (error) {
+      console.error('Failed to add step:', error);
+      alert('❌ Failed to add step');
+    }
+  };
+
+  const deleteStep = async (stepId) => {
+    if (!confirm('Are you sure you want to delete this step? This will remove it for all customers.')) {
+      return;
+    }
+
+    try {
+      await supabase.from('step_templates').delete().eq('id', stepId).execute();
+      await loadData();
+    } catch (error) {
+      console.error('Failed to delete step:', error);
+      alert('❌ Failed to delete step');
+    }
   };
 
   if (loading) {
@@ -222,8 +307,156 @@ function App() {
     );
   }
 
+  // Step Management View
+  if (currentView === 'step-management') {
+    return (
+      <div className="max-w-4xl mx-auto p-6 bg-gray-50 min-h-screen">
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={backToDashboard}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                Back to Dashboard
+              </button>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900">Manage Onboarding Steps</h1>
+          </div>
+
+          {/* Add New Step */}
+          <div className="mb-6 p-4 border-2 border-dashed border-gray-300 rounded-lg">
+            {!isAddingStep ? (
+              <button
+                onClick={() => setIsAddingStep(true)}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+                Add new step
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="Step title..."
+                  value={newStep.title}
+                  onChange={(e) => setNewStep({...newStep, title: e.target.value})}
+                  className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <textarea
+                  placeholder="Step description..."
+                  value={newStep.description}
+                  onChange={(e) => setNewStep({...newStep, description: e.target.value})}
+                  className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-20"
+                />
+                <div className="flex gap-4">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-gray-600">Days:</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={newStep.estimated_days}
+                      onChange={(e) => setNewStep({...newStep, estimated_days: parseInt(e.target.value)})}
+                      className="w-16 p-1 border rounded text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-gray-600">Owner:</label>
+                    <select
+                      value={newStep.owner}
+                      onChange={(e) => setNewStep({...newStep, owner: e.target.value})}
+                      className="p-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="customer">Customer</option>
+                      <option value="product_team">Product Team</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={addNewStep}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Add Step
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsAddingStep(false);
+                      setNewStep({ title: '', description: '', estimated_days: 1, owner: 'customer' });
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Steps List */}
+          <div className="space-y-2">
+            {stepTemplate.map((step, index) => (
+              <div
+                key={step.id}
+                draggable
+                onDragStart={(e) => handleDragStart(e, step)}
+                onDragOver={(e) => handleDragOver(e, step)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, step)}
+                onMouseEnter={() => setHoveredStep(step.id)}
+                onMouseLeave={() => setHoveredStep(null)}
+                className={`group flex items-center gap-3 p-4 border rounded-lg bg-white hover:bg-gray-50 transition-all cursor-move ${
+                  hoveredStep === step.id && draggedStep ? 'border-blue-300 bg-blue-50' : 'border-gray-200'
+                }`}
+              >
+                {/* Drag Handle */}
+                <div className={`text-gray-400 transition-opacity ${hoveredStep === step.id ? 'opacity-100' : 'opacity-0'}`}>
+                  <GripVertical className="w-5 h-5" />
+                </div>
+
+                {/* Step Number */}
+                <div className="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-sm font-medium text-gray-600 flex-shrink-0">
+                  {step.order}
+                </div>
+
+                {/* Step Content */}
+                <div className="flex-1">
+                  <div className="flex justify-between items-start mb-1">
+                    <h4 className="font-semibold text-gray-900">{step.title}</h4>
+                    <div className="flex items-center gap-2">
+                      {getOwnerIcon(step.owner)}
+                      <span className="text-sm text-gray-600">
+                        {step.owner === 'customer' ? 'Customer' : 'Product Team'}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-gray-600 text-sm mb-1">{step.description}</p>
+                  <div className="text-xs text-gray-500">
+                    Estimated: {step.estimated_days} day{step.estimated_days > 1 ? 's' : ''}
+                  </div>
+                </div>
+
+                {/* Delete Button */}
+                <button
+                  onClick={() => deleteStep(step.id)}
+                  className={`text-red-400 hover:text-red-600 transition-all ${
+                    hoveredStep === step.id ? 'opacity-100' : 'opacity-0'
+                  }`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Customer Detail View
-  if (selectedCustomer) {
+  if (currentView === 'customer-detail') {
     const progressPercentage = calculateProgress();
     
     return (
@@ -233,11 +466,11 @@ function App() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
               <button
-                onClick={backToCustomerList}
+                onClick={backToDashboard}
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" />
-                Back to Customers
+                Back to Dashboard
               </button>
             </div>
           </div>
@@ -346,31 +579,33 @@ function App() {
     );
   }
 
-  // Main Page
+  // Main Dashboard
   return (
     <div className="max-w-6xl mx-auto p-6 bg-gray-50 min-h-screen">
       <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
         <div className="flex justify-between items-start mb-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              SaaS Onboarding Tracker (Customers: {customers.length}, Steps: {stepTemplate.length})
+              SaaS Onboarding Tracker
             </h1>
             <p className="text-gray-600">Monitor and manage customer onboarding journeys</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full text-sm bg-green-100 text-green-700">
-              <Wifi className="w-4 h-4" />
-              Connected to Supabase
+            <div className="flex items-center gap-4 mt-2">
+              <div className="text-sm text-gray-500">
+                {customers.length} customers • {stepTemplate.length} steps
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full text-sm bg-green-100 text-green-700">
+                <Wifi className="w-4 h-4" />
+                Connected
+              </div>
             </div>
-            <button 
-              onClick={importSampleData}
-              disabled={importingData}
-              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-            >
-              <Database className="w-4 h-4" />
-              {importingData ? 'Importing...' : 'Import Sample Data'}
-            </button>
           </div>
+          <button 
+            onClick={viewStepManagement}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Settings className="w-4 h-4" />
+            Manage Steps
+          </button>
         </div>
 
         {customers.length === 0 && stepTemplate.length === 0 && (
@@ -378,15 +613,14 @@ function App() {
             <Database className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Welcome to Your Onboarding Tracker!</h3>
             <p className="text-gray-600 mb-4">
-              Get started by importing sample data to see how the tracker works.
+              Start by setting up your onboarding steps, then add customers to track their progress.
             </p>
             <button 
-              onClick={importSampleData}
-              disabled={importingData}
-              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 mx-auto"
+              onClick={viewStepManagement}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors mx-auto"
             >
-              <Database className="w-4 h-4" />
-              {importingData ? 'Importing...' : 'Import Sample Data'}
+              <Settings className="w-4 h-4" />
+              Set Up Steps
             </button>
           </div>
         )}
@@ -395,7 +629,7 @@ function App() {
         {customers.length > 0 && (
           <div className="mb-6">
             <h3 className="text-lg font-semibold mb-4">Customers ({customers.length})</h3>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {customers.map(customer => (
                 <div 
                   key={customer.id} 
@@ -420,15 +654,23 @@ function App() {
 
         {stepTemplate.length > 0 && (
           <div>
-            <h3 className="text-lg font-semibold mb-4">Onboarding Steps ({stepTemplate.length})</h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Onboarding Steps ({stepTemplate.length})</h3>
+              <button 
+                onClick={viewStepManagement}
+                className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                Manage Steps →
+              </button>
+            </div>
             <div className="space-y-3">
-              {stepTemplate.map((step, index) => (
+              {stepTemplate.slice(0, 3).map((step, index) => (
                 <div key={step.id} className="flex gap-4 p-4 border rounded-lg bg-white">
                   <div className="flex flex-col items-center">
                     <div className="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-sm font-medium text-gray-600">
                       {step.order}
                     </div>
-                    {index < stepTemplate.length - 1 && (
+                    {index < Math.min(stepTemplate.length - 1, 2) && (
                       <div className="w-0.5 h-6 bg-gray-300 mt-2"></div>
                     )}
                   </div>
@@ -450,22 +692,14 @@ function App() {
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-900 mb-2">🎯 New Features Added</h4>
-        <ul className="text-blue-800 text-sm space-y-1">
-          <li>• Click on any customer to view their detailed progress</li>
-          <li>• Check/uncheck steps to mark them as complete</li>
-          <li>• Visual progress bar shows completion percentage</li>
-          <li>• Step completion data is stored in Supabase</li>
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-export default App;
+              {stepTemplate.length > 3 && (
+                <div className="text-center py-2">
+                  <button 
+                    onClick={viewStepManagement}
+                    className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    ... and {stepTemplate.length - 3} more steps
+                  </button>
+                </div>
+              )}
+            </div
