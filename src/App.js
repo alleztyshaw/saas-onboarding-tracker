@@ -272,7 +272,7 @@ function App() {
           </div>
         </div>
 
-        {customers.length === 0 && stepTemplate.length === 0 && )
+        {customers.length === 0 && stepTemplate.length === 0 && (
           <div className="bg-white rounded-lg shadow-sm p-8 text-center">
             <Database className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Welcome to Your Onboarding Tracker!</h3>
