@@ -190,8 +190,15 @@ function App() {
         console.log(`Inserting ${customerStepInstances.length} customer step records...`);
         console.log('Sample records:', customerStepInstances.slice(0, 3));
         
-        const result = await supabase.from('customer_steps').insert(customerStepInstances).execute();
-        console.log('Customer steps insert result:', result);
+        try {
+          const result = await supabase.from('customer_steps').insert(customerStepInstances).execute();
+          console.log('Customer steps insert result:', result);
+          console.log('Insert successful!');
+        } catch (insertError) {
+          console.error('Customer steps insert failed:', insertError);
+          console.error('Insert error message:', insertError.message);
+          throw new Error(`Customer steps insert failed: ${insertError.message}`);
+        }
       }
       
       await loadData();
