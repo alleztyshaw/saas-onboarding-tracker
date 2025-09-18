@@ -187,12 +187,6 @@ function App() {
     }
   };
 
-  const getOwnerIcon = (owner) => {
-    return owner === 'customer' 
-      ? <User className="w-4 h-4 text-blue-600" />
-      : <Users className="w-4 h-4 text-purple-600" />;
-  };
-
   const handleSelectCustomer = (customer) => {
     setSelectedCustomer(customer);
     setCurrentPage('customer-detail');
@@ -221,7 +215,7 @@ function App() {
     );
   }
 
-  // Progress Dashboard Page
+  // Progress Dashboard Page (shows all customers)
   if (currentPage === 'dashboard') {
     return (
       <ProgressDashboard
@@ -233,8 +227,8 @@ function App() {
     );
   }
 
-  // Individual Customer Progress Page
-  if (currentPage === 'customer-detail') {
+  // Individual Customer Progress Page (shows detailed timeline)
+  if (currentPage === 'customer-detail' && selectedCustomer) {
     return (
       <CustomerProgressTracker
         customers={customers}
@@ -327,7 +321,7 @@ function App() {
               <div className="flex items-center justify-between mb-3">
                 <UserCheck className="w-8 h-8 text-green-600" />
                 <span className="text-2xl font-bold text-green-600">
-                  {customers.filter(c => Math.random() > 0.5).length}
+                  {Math.floor(customers.length * 0.7)}
                 </span>
               </div>
               <h3 className="font-semibold text-gray-900 mb-1">Active Customers</h3>
