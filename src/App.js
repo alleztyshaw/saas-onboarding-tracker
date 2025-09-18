@@ -106,8 +106,6 @@ function App() {
   const importSampleData = async () => {
     setImportingData(true);
     try {
-      console.log('=== STARTING SAMPLE DATA IMPORT ===');
-      
       const sampleSteps = [
         { order: 1, title: "Account Setup & Email Verification", description: "Customer verifies email and completes basic account information", estimated_days: 1, owner: "customer" },
         { order: 2, title: "Initial Configuration Call", description: "30-minute onboarding call with Customer Success team to understand requirements", estimated_days: 2, owner: "product_team" },
@@ -124,126 +122,14 @@ function App() {
         { name: "Digital Solutions Co.", email: "contact@digitalsolutions.com", signup_date: "2024-09-12" }
       ];
 
-      console.log('=== INSERTING STEPS AND CUSTOMERS ===');
       await supabase.from('step_templates').insert(sampleSteps).execute();
-      console.log('✅ Steps inserted');
-      
       await supabase.from('customers').insert(sampleCustomers).execute();
-      console.log('✅ Customers inserted');
       
-      console.log('=== FETCHING FRESH DATA ===');
-      const allCustomers = await supabase.from('customers').select().execute();
-      const allSteps = await supabase.from('step_templates').select().execute();
-      
-      console.log('Found customers:', allCustomers?.length);
-      console.log('Found steps:', allSteps?.length);
-      console.log('Customer data:', allCustomers);
-      console.log('Steps data:', allSteps);
-      
-      console.log('=== CHECKING CONDITIONS ===');
-      console.log('allCustomers exists?', !!allCustomers);
-      console.log('allSteps exists?', !!allSteps);
-      console.log('allCustomers length > 0?', allCustomers?.length > 0);
-      console.log('allSteps length > 0?', allSteps?.length > 0);
-      
-      if (allCustomers && allSteps && allCustomers.length > 0 && allSteps.length > 0) {
-        console.log('=== CONDITIONS MET - CREATING CUSTOMER STEPS ===');
-        const customerStepInstances = [];
-        
-        allCustomers.forEach((customer, customerIndex) => {
-          console.log(`Processing customer ${customerIndex + 1}: ${customer.name} (ID: ${customer.id})`);
-          
-          allSteps.forEach((step, stepIndex) => {
-            let status = 'pending';
-            let completedDate = null;
-            let startedDate = null;
-            
-            // Create realistic progress for demo
-            if (customerIndex === 0) { // First customer - further along
-              if (stepIndex <= 2) {
-                status = 'completed';
-                completedDate = '2024-09-12';
-                startedDate = '2024-09-11';
-              } else if (stepIndex === 3) {
-                status = 'in_progress';
-                startedDate = '2024-09-17';
-              }
-            } else if (customerIndex === 1) { // Second customer - middle progress
-              if (stepIndex <= 1) {
-                status = 'completed';
-                completedDate = '2024-09-16';
-                startedDate = '2024-09-15';
-              } else if (stepIndex === 2) {
-                status = 'in_progress';
-                startedDate = '2024-09-17';
-              }
-            } else { // Third customer - just started
-              if (stepIndex === 0) {
-                status = 'completed';
-                completedDate = '2024-09-13';
-                startedDate = '2024-09-12';
-              } else if (stepIndex === 1) {
-                status = 'in_progress';
-                startedDate = '2024-09-18';
-              }
-            }
-            
-            customerStepInstances.push({
-              customer_id: customer.id,
-              template_id: step.id,
-              status: status,
-              completed_date: completedDate,
-              started_date: startedDate
-            });
-          });
-        });
-
-        console.log(`=== INSERTING ${customerStepInstances.length} CUSTOMER STEP RECORDS ===`);
-        console.log('Sample records:', customerStepInstances.slice(0, 3));
-        
-        try {
-          // First, check if we can read from the table
-          console.log('Testing read access to customer_steps...');
-          const testRead = await supabase.from('customer_steps').select().execute();
-          console.log('Read test result:', testRead);
-          console.log('Current customer_steps count:', testRead?.length || 0);
-          
-          // Try inserting just one record first
-          console.log('Trying to insert one record...');
-          const singleRecord = customerStepInstances[0];
-          console.log('Single record to insert:', singleRecord);
-          
-          const singleResult = await supabase.from('customer_steps').insert([singleRecord]).execute();
-          console.log('Single insert result:', singleResult);
-          
-          // If that works, try inserting all
-          if (singleResult) {
-            console.log('Single insert worked, trying batch insert...');
-            const batchResult = await supabase.from('customer_steps').insert(customerStepInstances.slice(1)).execute();
-            console.log('Batch insert result:', batchResult);
-          }
-          
-          // Check final count
-          const finalRead = await supabase.from('customer_steps').select().execute();
-          console.log('Final customer_steps count:', finalRead?.length || 0);
-          
-        } catch (insertError) {
-          console.error('Customer steps insert failed:', insertError);
-          console.error('Insert error message:', insertError.message);
-          throw new Error(`Customer steps insert failed: ${insertError.message}`);
-        }
-      } else {
-        console.log('=== CONDITIONS NOT MET - SKIPPING CUSTOMER STEPS ===');
-        console.log('This is why customer_steps are not being created');
-      }
-      
-      console.log('=== RELOADING DATA ===');
       await loadData();
-      alert('✅ Sample data with progress tracking imported successfully!');
+      alert('✅ Sample data imported successfully!');
     } catch (error) {
       console.error('Failed to import sample data:', error);
-      console.error('Error details:', error.message);
-      alert(`❌ Failed to import sample data: ${error.message}`);
+      alert('❌ Failed to import sample data');
     } finally {
       setImportingData(false);
     }
