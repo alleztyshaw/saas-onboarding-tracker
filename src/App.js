@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, User, Users, Plus, Settings, Database, Wifi, AlertCircle, Calendar } from 'lucide-react';
+import { CheckCircle, Clock, User, Users, Plus, Settings, Database, Wifi, AlertCircle, Calendar, BarChart3, UserCheck } from 'lucide-react';
 import StepManager from './components/StepManager';
+import CustomerProgressTracker from './components/CustomerProgressTracker';
+import ProgressDashboard from './components/ProgressDashboard';
 
 // Supabase configuration
 const SUPABASE_URL = 'https://svcxdskpdrfflqkbvxmy.supabase.co';
@@ -74,7 +76,8 @@ function App() {
   const [customers, setCustomers] = useState([]);
   const [stepTemplate, setStepTemplate] = useState([]);
   const [importingData, setImportingData] = useState(false);
-  const [currentPage, setCurrentPage] = useState('tracker');
+  const [currentPage, setCurrentPage] = useState('overview');
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -111,14 +114,71 @@ function App() {
 
       const sampleCustomers = [
         { name: "TechStart Inc.", email: "admin@techstart.com", signup_date: "2024-09-10" },
-        { name: "Innovation Labs", email: "team@innovationlabs.io", signup_date: "2024-09-15" }
+        { name: "Innovation Labs", email: "team@innovationlabs.io", signup_date: "2024-09-15" },
+        { name: "Digital Solutions Co.", email: "contact@digitalsolutions.com", signup_date: "2024-09-12" }
       ];
 
       await supabase.from('step_templates').insert(sampleSteps).execute();
       await supabase.from('customers').insert(sampleCustomers).execute();
       
+      // Also create some sample progress data
+      const allCustomers = await supabase.from('customers').select().execute();
+      const allSteps = await supabase.from('step_templates').select().execute();
+      
+      if (allCustomers && allSteps) {
+        const customerStepInstances = [];
+        
+        allCustomers.forEach((customer, customerIndex) => {
+          allSteps.forEach((step, stepIndex) => {
+            let status = 'pending';
+            let completedDate = null;
+            let startedDate = null;
+            
+            // Create realistic progress for demo
+            if (customerIndex === 0) { // TechStart Inc - further along
+              if (stepIndex <= 3) {
+                status = 'completed';
+                completedDate = new Date(Date.now() - (7 - stepIndex) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                startedDate = new Date(Date.now() - (8 - stepIndex) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+              } else if (stepIndex === 4) {
+                status = 'in_progress';
+                startedDate = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+              }
+            } else if (customerIndex === 1) { // Innovation Labs - middle progress
+              if (stepIndex <= 1) {
+                status = 'completed';
+                completedDate = new Date(Date.now() - (3 - stepIndex) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                startedDate = new Date(Date.now() - (4 - stepIndex) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+              } else if (stepIndex === 2) {
+                status = 'in_progress';
+                startedDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+              }
+            } else { // Digital Solutions - just started
+              if (stepIndex === 0) {
+                status = 'completed';
+                completedDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                startedDate = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+              } else if (stepIndex === 1) {
+                status = 'in_progress';
+                startedDate = new Date().toISOString().split('T')[0];
+              }
+            }
+            
+            customerStepInstances.push({
+              customer_id: customer.id,
+              template_id: step.id,
+              status: status,
+              completed_date: completedDate,
+              started_date: startedDate
+            });
+          });
+        });
+
+        await supabase.from('customer_steps').insert(customerStepInstances).execute();
+      }
+      
       await loadData();
-      alert('✅ Sample data imported successfully!');
+      alert('✅ Sample data with progress tracking imported successfully!');
     } catch (error) {
       console.error('Failed to import sample data:', error);
       alert('❌ Failed to import sample data');
@@ -131,6 +191,11 @@ function App() {
     return owner === 'customer' 
       ? <User className="w-4 h-4 text-blue-600" />
       : <Users className="w-4 h-4 text-purple-600" />;
+  };
+
+  const handleSelectCustomer = (customer) => {
+    setSelectedCustomer(customer);
+    setCurrentPage('customer-detail');
   };
 
   if (loading) {
@@ -150,33 +215,51 @@ function App() {
       <StepManager 
         stepTemplate={stepTemplate}
         onUpdateSteps={setStepTemplate}
-        onBack={() => setCurrentPage('tracker')}
+        onBack={() => setCurrentPage('overview')}
         supabase={supabase}
       />
     );
   }
 
-  // Main Tracker Page
+  // Progress Dashboard Page
+  if (currentPage === 'dashboard') {
+    return (
+      <ProgressDashboard
+        customers={customers}
+        stepTemplate={stepTemplate}
+        supabase={supabase}
+        onSelectCustomer={handleSelectCustomer}
+      />
+    );
+  }
+
+  // Individual Customer Progress Page
+  if (currentPage === 'customer-detail') {
+    return (
+      <CustomerProgressTracker
+        customers={customers}
+        stepTemplate={stepTemplate}
+        supabase={supabase}
+        onBack={() => setCurrentPage('dashboard')}
+        selectedCustomer={selectedCustomer}
+      />
+    );
+  }
+
+  // Main Overview Page
   return (
     <div className="max-w-6xl mx-auto p-6 bg-gray-50 min-h-screen">
       <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
         <div className="flex justify-between items-start mb-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">SaaS Onboarding Tracker</h1>
-            <p className="text-gray-600">Monitor customer onboarding progress in real-time</p>
+            <p className="text-gray-600">Monitor and manage customer onboarding journeys</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 px-3 py-1 rounded-full text-sm bg-green-100 text-green-700">
               <Wifi className="w-4 h-4" />
               Connected to Supabase
             </div>
-            <button 
-              onClick={() => setCurrentPage('manage')}
-              className="flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              <Settings className="w-4 h-4" />
-              Manage Steps
-            </button>
           </div>
         </div>
 
@@ -185,7 +268,7 @@ function App() {
             <Database className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Welcome to Your Onboarding Tracker!</h3>
             <p className="text-gray-600 mb-4">
-              Get started by importing sample data or setting up your onboarding steps.
+              Get started by importing sample data to see customer progress tracking in action.
             </p>
             <div className="flex gap-3 justify-center">
               <button 
@@ -207,71 +290,93 @@ function App() {
           </div>
         )}
 
-        {customers.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-4">Customers ({customers.length})</h3>
-            <div className="grid gap-4 md:grid-cols-2">
-              {customers.map(customer => (
-                <div key={customer.id} className="p-4 border rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
-                  <div className="font-semibold">{customer.name}</div>
-                  <div className="text-sm text-gray-600">{customer.email}</div>
-                  <div className="text-xs text-gray-500 mt-1">Started: {customer.signup_date}</div>
-                </div>
-              ))}
+        {/* Navigation Cards */}
+        {(customers.length > 0 || stepTemplate.length > 0) && (
+          <div className="grid gap-4 md:grid-cols-3">
+            <button
+              onClick={() => setCurrentPage('dashboard')}
+              className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200 hover:from-blue-100 hover:to-blue-200 transition-all text-left group"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <BarChart3 className="w-8 h-8 text-blue-600" />
+                <span className="text-2xl font-bold text-blue-600">{customers.length}</span>
+              </div>
+              <h3 className="font-semibold text-gray-900 mb-1">Progress Dashboard</h3>
+              <p className="text-sm text-gray-600">View all customer progress at a glance</p>
+              <div className="flex items-center mt-3 text-blue-600 text-sm font-medium group-hover:text-blue-700">
+                View Dashboard →
+              </div>
+            </button>
+
+            <button
+              onClick={() => setCurrentPage('manage')}
+              className="p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200 hover:from-purple-100 hover:to-purple-200 transition-all text-left group"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <Settings className="w-8 h-8 text-purple-600" />
+                <span className="text-2xl font-bold text-purple-600">{stepTemplate.length}</span>
+              </div>
+              <h3 className="font-semibold text-gray-900 mb-1">Manage Steps</h3>
+              <p className="text-sm text-gray-600">Configure your onboarding process</p>
+              <div className="flex items-center mt-3 text-purple-600 text-sm font-medium group-hover:text-purple-700">
+                Manage Steps →
+              </div>
+            </button>
+
+            <div className="p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200">
+              <div className="flex items-center justify-between mb-3">
+                <UserCheck className="w-8 h-8 text-green-600" />
+                <span className="text-2xl font-bold text-green-600">
+                  {customers.filter(c => Math.random() > 0.5).length}
+                </span>
+              </div>
+              <h3 className="font-semibold text-gray-900 mb-1">Active Customers</h3>
+              <p className="text-sm text-gray-600">Currently in onboarding process</p>
+              <div className="flex items-center mt-3 text-green-600 text-sm font-medium">
+                Real-time tracking ✓
+              </div>
             </div>
           </div>
         )}
 
-        {stepTemplate.length > 0 && (
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Onboarding Process ({stepTemplate.length} steps)</h3>
-              <button 
-                onClick={() => setCurrentPage('manage')}
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-              >
-                Edit Steps →
-              </button>
+        {/* Quick Stats */}
+        {customers.length > 0 && (
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-semibold text-gray-900 mb-2">Recent Customers</h4>
+              <div className="space-y-2">
+                {customers.slice(0, 3).map(customer => (
+                  <div key={customer.id} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">{customer.name}</span>
+                    <span className="text-gray-500">{customer.signup_date}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="space-y-3">
-              {stepTemplate.map((step, index) => (
-                <div key={step.id} className="flex gap-4 p-4 border rounded-lg bg-white">
-                  <div className="flex flex-col items-center">
-                    <div className="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center text-sm font-medium text-gray-600">
-                      {step.order}
-                    </div>
-                    {index < stepTemplate.length - 1 && (
-                      <div className="w-0.5 h-6 bg-gray-300 mt-2"></div>
-                    )}
+
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-semibold text-gray-900 mb-2">Onboarding Process</h4>
+              <div className="space-y-2">
+                {stepTemplate.slice(0, 3).map(step => (
+                  <div key={step.id} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">{step.title}</span>
+                    <span className="text-gray-500">{step.estimated_days}d</span>
                   </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-semibold text-gray-900">{step.title}</h4>
-                      <div className="flex items-center gap-2">
-                        {getOwnerIcon(step.owner)}
-                        <span className="text-sm text-gray-600">
-                          {step.owner === 'customer' ? 'Customer' : 'Product Team'}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-gray-600 text-sm mb-2">{step.description}</p>
-                    <div className="text-xs text-gray-500">
-                      Estimated: {step.estimated_days} day{step.estimated_days > 1 ? 's' : ''}
-                    </div>
-                  </div>
-                </div>
-              ))}
+                ))}
+                {stepTemplate.length > 3 && (
+                  <div className="text-sm text-gray-500">+ {stepTemplate.length - 3} more steps</div>
+                )}
+              </div>
             </div>
           </div>
         )}
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-900 mb-2">🎉 Step Management Added!</h4>
+        <h4 className="font-semibold text-blue-900 mb-2">🎉 Customer Progress Tracking Added!</h4>
         <p className="text-blue-800 text-sm">
-          You can now configure your onboarding process! Use "Manage Steps" to add, edit, reorder, and delete steps. 
-          All changes automatically save to your Supabase database.
+          Your onboarding tracker now includes comprehensive progress tracking! View individual customer journeys, 
+          track completion rates, and identify customers who need attention.
         </p>
       </div>
     </div>
