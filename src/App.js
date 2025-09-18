@@ -702,4 +702,22 @@ function App() {
                   </button>
                 </div>
               )}
-            </div
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h4 className="font-semibold text-blue-900 mb-2">🎯 Features Available</h4>
+        <ul className="text-blue-800 text-sm space-y-1">
+          <li>• Click on customers to track their progress through onboarding steps</li>
+          <li>• Use "Manage Steps" to add, reorder, and delete onboarding steps</li>
+          <li>• Drag and drop steps to reorder them (Notion-style interface)</li>
+          <li>• Toggle step completion with improved error handling</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+export default App;
