@@ -86,11 +86,15 @@ function App() {
       const customersData = await supabase.from('customers').select().execute();
       const templatesData = await supabase.from('step_templates').select().execute();
       
-      console.log('Customers loaded:', customersData);
-      console.log('Templates loaded:', templatesData);
+      console.log('Raw customers response:', customersData);
+      console.log('Raw templates response:', templatesData);
+      console.log('Templates data type:', typeof templatesData);
+      console.log('Templates is array?', Array.isArray(templatesData));
+      console.log('Templates length:', templatesData?.length);
       
       setCustomers(customersData || []);
       const sortedTemplates = (templatesData || []).sort((a, b) => a.order - b.order);
+      console.log('Sorted templates:', sortedTemplates);
       setStepTemplate(sortedTemplates);
     } catch (error) {
       console.error('Failed to load data:', error);
