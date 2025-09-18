@@ -90,6 +90,7 @@ function App() {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerProgress, setCustomerProgress] = useState([]);
   const [loadingProgress, setLoadingProgress] = useState(false);
+  const [loadingCustomerId, setLoadingCustomerId] = useState(null);
 
   useEffect(() => {
     loadData();
