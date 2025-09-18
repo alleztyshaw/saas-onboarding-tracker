@@ -107,14 +107,19 @@ function App() {
     }
   };
 
-  const toggleStepCompletion = async (stepId, isCompleted) => {
+  const toggleStepCompletion = async (stepId) => {
     try {
-      // Use upsert to handle both create and update in one operation
+      // Find the current progress record to determine current state
+      const currentProgress = customerProgress.find(p => p.step_template_id === stepId);
+      
+      // Toggle the completion state (if record doesn't exist, default to false, so toggle to true)
+      const newCompletedState = currentProgress ? !currentProgress.completed : true;
+      
       const progressData = {
         customer_id: selectedCustomer.id,
         step_template_id: stepId,
-        completed: isCompleted,
-        completed_at: isCompleted ? new Date().toISOString() : null
+        completed: newCompletedState,
+        completed_at: newCompletedState ? new Date().toISOString() : null
       };
 
       await supabase.from('customer_progress').upsert(progressData).execute();
@@ -224,7 +229,7 @@ function App() {
                   }`}>
                     <div className="flex flex-col items-center">
                       <button
-                        onClick={() => toggleStepCompletion(step.id, !isCompleted)}
+                        onClick={() => toggleStepCompletion(step.id)}
                         className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
                           isCompleted 
                             ? 'bg-green-500 border-green-500 text-white hover:bg-green-600' 
