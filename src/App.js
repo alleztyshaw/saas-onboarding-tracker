@@ -191,9 +191,31 @@ function App() {
         console.log('Sample records:', customerStepInstances.slice(0, 3));
         
         try {
-          const result = await supabase.from('customer_steps').insert(customerStepInstances).execute();
-          console.log('Customer steps insert result:', result);
-          console.log('Insert successful!');
+          // First, check if we can read from the table
+          console.log('Testing read access to customer_steps...');
+          const testRead = await supabase.from('customer_steps').select().execute();
+          console.log('Read test result:', testRead);
+          console.log('Current customer_steps count:', testRead?.length || 0);
+          
+          // Try inserting just one record first
+          console.log('Trying to insert one record...');
+          const singleRecord = customerStepInstances[0];
+          console.log('Single record to insert:', singleRecord);
+          
+          const singleResult = await supabase.from('customer_steps').insert([singleRecord]).execute();
+          console.log('Single insert result:', singleResult);
+          
+          // If that works, try inserting all
+          if (singleResult) {
+            console.log('Single insert worked, trying batch insert...');
+            const batchResult = await supabase.from('customer_steps').insert(customerStepInstances.slice(1)).execute();
+            console.log('Batch insert result:', batchResult);
+          }
+          
+          // Check final count
+          const finalRead = await supabase.from('customer_steps').select().execute();
+          console.log('Final customer_steps count:', finalRead?.length || 0);
+          
         } catch (insertError) {
           console.error('Customer steps insert failed:', insertError);
           console.error('Insert error message:', insertError.message);
