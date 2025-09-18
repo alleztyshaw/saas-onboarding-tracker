@@ -155,7 +155,7 @@ function App() {
         <div className="flex justify-between items-start mb-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              SaaS Onboarding Tracker (Customers: {customers.length}, Steps: {stepTemplates.length})
+              SaaS Onboarding Tracker (Customers: {customers.length}, Steps: {stepTemplate.length})
             </h1>
             <p className="text-gray-600">Monitor and manage customer onboarding journeys</p>
           </div>
