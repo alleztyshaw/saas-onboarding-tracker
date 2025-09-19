@@ -112,17 +112,29 @@ function App() {
       // Find the current progress record to determine current state
       const currentProgress = customerProgress.find(p => p.step_template_id === stepId);
       
-      // Toggle the completion state (if record doesn't exist, default to false, so toggle to true)
-      const newCompletedState = currentProgress ? !currentProgress.completed : true;
-      
-      const progressData = {
-        customer_id: selectedCustomer.id,
-        step_template_id: stepId,
-        completed: newCompletedState,
-        completed_at: newCompletedState ? new Date().toISOString() : null
-      };
-
-      await supabase.from('customer_progress').upsert(progressData).execute();
+      if (currentProgress) {
+        // Record exists - UPDATE it with toggled state
+        const newCompletedState = !currentProgress.completed;
+        const updateData = {
+          completed: newCompletedState,
+          completed_at: newCompletedState ? new Date().toISOString() : null
+        };
+        
+        await supabase.from('customer_progress')
+          .update(updateData)
+          .eq('id', currentProgress.id)
+          .execute();
+      } else {
+        // Record doesn't exist - INSERT new record as completed
+        const insertData = {
+          customer_id: selectedCustomer.id,
+          step_template_id: stepId,
+          completed: true,
+          completed_at: new Date().toISOString()
+        };
+        
+        await supabase.from('customer_progress').insert(insertData).execute();
+      }
       
       // Reload progress to reflect changes
       await loadCustomerProgress(selectedCustomer.id);
